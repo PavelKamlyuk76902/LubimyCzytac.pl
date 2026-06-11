@@ -1,0 +1,98 @@
+
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dodaj książkę</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f5f5; color: #222; }
+    header { background: #1a1a2e; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 1.4rem; }
+    header a { color: #ccc; text-decoration: none; font-size: 0.9rem; }
+    main { max-width: 500px; margin: 2rem auto; padding: 0 1rem; }
+    .form-card { background: white; border-radius: 10px; padding: 2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    h2 { margin-bottom: 1.5rem; font-size: 1.2rem; }
+    label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; color: #555; }
+    input, textarea, select { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; margin-bottom: 1rem; font-family: sans-serif; background: white; }
+    textarea { height: 100px; resize: vertical; }
+    button { width: 100%; background: #e94560; color: white; border: none; padding: 0.75rem; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+    button:hover { background: #c73652; }
+    .msg { margin-top: 1rem; text-align: center; font-size: 0.9rem; color: green; display: none; }
+    .add-author { font-size: 0.85rem; color: #e94560; text-decoration: none; display: inline-block; margin-top: -0.5rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📚 BookShelf</h1>
+    <a href="index.html">← Wróć do listy</a>
+  </header>
+  <main>
+    <div class="form-card">
+      <h2>Dodaj nową książkę</h2>
+      <label>Tytuł *</label>
+      <input type="text" id="title" placeholder="np. Wiedźmin" />
+      <label>Autor *</label>
+      <select id="authorId">
+        <option value="">— wybierz autora —</option>
+      </select>
+      <a href="add-author.html" class="add-author">+ Dodaj nowego autora</a>
+      <label>Gatunek</label>
+      <input type="text" id="genre" placeholder="np. Fantasy" />
+      <label>Opis</label>
+      <textarea id="description" placeholder="Krótki opis książki..."></textarea>
+      <button onclick="addBook()">Dodaj książkę</button>
+      <p class="msg" id="msg">✅ Książka dodana!</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, orderBy, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAUP64_Ko8HYWf2YlZNAKf0dZFZJ76yEgA",
+      authDomain: "book-app-cac84.firebaseapp.com",
+      projectId: "book-app-cac84",
+      storageBucket: "book-app-cac84.firebasestorage.app",
+      messagingSenderId: "498896574120",
+      appId: "1:498896574120:web:0e562638c0b4aba0b9d49d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const authorSelect = document.getElementById("authorId");
+    const authorsSnap = await getDocs(query(collection(db, "authors"), orderBy("name")));
+    authorsSnap.forEach(doc => {
+      const opt = document.createElement("option");
+      opt.value = doc.id;
+      opt.textContent = doc.data().name;
+      authorSelect.appendChild(opt);
+    });
+
+    window.addBook = async () => {
+      const title = document.getElementById("title").value.trim();
+      const authorId = document.getElementById("authorId").value;
+      const genre = document.getElementById("genre").value.trim();
+      const description = document.getElementById("description").value.trim();
+      const authorName = authorId ? authorSelect.options[authorSelect.selectedIndex].text : "";
+
+      if (!title || !authorId) {
+        alert("Tytuł i autor są wymagane!");
+        return;
+      }
+
+      await addDoc(collection(db, "books"), {
+        title, authorId, author: authorName, genre, description,
+        createdAt: serverTimestamp()
+      });
+
+      document.getElementById("msg").style.display = "block";
+      setTimeout(() => location.href = "index.html", 1200);
+    };
+  </script>
+</body>
+</html>

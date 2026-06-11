@@ -1,0 +1,121 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>BookShelf</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f5f5; color: #222; }
+    header { background: #1a1a2e; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    header h1 { font-size: 1.4rem; }
+    .header-links { display: flex; gap: 0.75rem; }
+    header a { background: #e94560; color: white; padding: 0.5rem 1rem; border-radius: 6px; text-decoration: none; font-size: 0.9rem; }
+    header a.secondary { background: #2a2a4e; }
+    main { max-width: 960px; margin: 2rem auto; padding: 0 1rem; }
+    .toolbar { display: flex; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .toolbar input { flex: 1; min-width: 200px; padding: 0.6rem 0.9rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; }
+    .toolbar select { padding: 0.6rem 0.9rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; background: white; }
+    h2 { margin-bottom: 1rem; font-size: 1.2rem; color: #333; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem; }
+    .card { background: white; border-radius: 10px; padding: 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1); cursor: pointer; transition: transform 0.1s; }
+    .card:hover { transform: translateY(-2px); }
+    .card h3 { font-size: 1rem; margin-bottom: 0.3rem; }
+    .card .author-link { font-size: 0.85rem; color: #e94560; text-decoration: none; display: inline-block; margin-bottom: 0.3rem; }
+    .card .author-link:hover { text-decoration: underline; }
+    .card p { font-size: 0.8rem; color: #aaa; }
+    .empty { text-align: center; color: #999; padding: 3rem; grid-column: 1/-1; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📚 BookShelf</h1>
+    <div class="header-links">
+      <a href="authors.html" class="secondary">Autorzy</a>
+      <a href="add.html">+ Dodaj książkę</a>
+    </div>
+  </header>
+  <main>
+    <h2>Wszystkie książki</h2>
+    <div class="toolbar">
+      <input type="text" id="search" placeholder="🔍 Szukaj po tytule lub autorze..." oninput="filterBooks()" />
+      <select id="genre-filter" onchange="filterBooks()">
+        <option value="">Wszystkie gatunki</option>
+      </select>
+    </div>
+    <div class="grid" id="books-grid">
+      <p class="empty">Ładowanie...</p>
+    </div>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+    import { getFirestore, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAUP64_Ko8HYWf2YlZNAKf0dZFZJ76yEgA",
+      authDomain: "book-app-cac84.firebaseapp.com",
+      projectId: "book-app-cac84",
+      storageBucket: "book-app-cac84.firebasestorage.app",
+      messagingSenderId: "498896574120",
+      appId: "1:498896574120:web:0e562638c0b4aba0b9d49d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window._db = db;
+
+    const grid = document.getElementById("books-grid");
+    const genreFilter = document.getElementById("genre-filter");
+
+    const q = query(collection(db, "books"), orderBy("createdAt", "desc"));
+    const snapshot = await getDocs(q);
+    window._allBooks = [];
+
+    if (snapshot.empty) {
+      grid.innerHTML = '<p class="empty">Brak książek. Dodaj pierwszą!</p>';
+    } else {
+      snapshot.forEach(doc => window._allBooks.push({ id: doc.id, ...doc.data() }));
+      const genres = [...new Set(window._allBooks.map(b => b.genre).filter(Boolean))];
+      genres.forEach(g => {
+        const opt = document.createElement("option");
+        opt.value = g; opt.textContent = g;
+        genreFilter.appendChild(opt);
+      });
+      renderBooks(window._allBooks);
+    }
+
+    function renderBooks(books) {
+      if (!books.length) {
+        grid.innerHTML = '<p class="empty">Brak wyników.</p>';
+        return;
+      }
+      grid.innerHTML = "";
+      books.forEach(b => {
+        const card = document.createElement("div");
+        card.className = "card";
+        card.innerHTML = `
+          <h3>${b.title}</h3>
+          <a class="author-link" href="author.html?id=${b.authorId || ''}" onclick="event.stopPropagation()">${b.author || '—'}</a>
+          <p>${b.genre || ""}</p>
+        `;
+        card.onclick = () => location.href = `book.html?id=${b.id}`;
+        grid.appendChild(card);
+      });
+    }
+
+    window.filterBooks = () => {
+      const search = document.getElementById("search").value.toLowerCase();
+      const genre = document.getElementById("genre-filter").value;
+      const filtered = window._allBooks.filter(b => {
+        const matchSearch = b.title?.toLowerCase().includes(search) || b.author?.toLowerCase().includes(search);
+        const matchGenre = !genre || b.genre === genre;
+        return matchSearch && matchGenre;
+      });
+      renderBooks(filtered);
+    };
+  </script>
+</body>
+</html>
+

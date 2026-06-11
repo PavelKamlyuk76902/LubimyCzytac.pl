@@ -1,0 +1,132 @@
+
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Szczegóły książki</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: sans-serif; background: #f5f5f5; color: #222; }
+    header { background: #1a1a2e; color: white; padding: 1rem 2rem; display: flex; justify-content: space-between; align-items: center; }
+    header h1 { font-size: 1.4rem; }
+    header a { color: #ccc; text-decoration: none; font-size: 0.9rem; }
+    main { max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+    .card { background: white; border-radius: 10px; padding: 2rem; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    .badge { display: inline-block; background: #f0f0f0; color: #555; font-size: 0.8rem; padding: 0.2rem 0.7rem; border-radius: 20px; margin-bottom: 1rem; }
+    h2 { font-size: 1.6rem; margin-bottom: 0.3rem; }
+    .author-link { color: #e94560; text-decoration: none; display: inline-block; margin-bottom: 1.5rem; font-size: 1rem; }
+    .author-link:hover { text-decoration: underline; }
+    .description { line-height: 1.7; color: #444; margin-bottom: 1.5rem; }
+    .actions { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .btn { padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; text-decoration: none; border: none; }
+    .btn-back { background: #1a1a2e; color: white; }
+    .btn-edit { background: #f0f0f0; color: #333; }
+    .btn-edit:hover { background: #e0e0e0; }
+    .btn-delete { background: none; border: 1px solid #e94560 !important; color: #e94560; }
+    .btn-delete:hover { background: #e94560; color: white; }
+    .edit-form { display: none; margin-top: 1.5rem; border-top: 1px solid #eee; padding-top: 1.5rem; }
+    .edit-form.open { display: block; }
+    .edit-form label { display: block; margin-bottom: 0.3rem; font-size: 0.9rem; color: #555; }
+    .edit-form input, .edit-form textarea, .edit-form select { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; margin-bottom: 1rem; font-family: sans-serif; background: white; }
+    .edit-form textarea { height: 80px; resize: vertical; }
+    .btn-save { background: #e94560; color: white; border: none; padding: 0.6rem 1.5rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem; }
+    .loading { text-align: center; color: #999; padding: 3rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📚 BookShelf</h1>
+    <a href="index.html">← Wróć do listy</a>
+  </header>
+  <main id="main">
+    <p class="loading">Ładowanie...</p>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-app.js";
+    import { getFirestore, doc, getDoc, deleteDoc, updateDoc, collection, getDocs, orderBy, query } from "https://www.gstatic.com/firebasejs/12.14.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAUP64_Ko8HYWf2YlZNAKf0dZFZJ76yEgA",
+      authDomain: "book-app-cac84.firebaseapp.com",
+      projectId: "book-app-cac84",
+      storageBucket: "book-app-cac84.firebasestorage.app",
+      messagingSenderId: "498896574120",
+      appId: "1:498896574120:web:0e562638c0b4aba0b9d49d"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const params = new URLSearchParams(location.search);
+    const id = params.get("id");
+    const main = document.getElementById("main");
+
+    if (!id) { main.innerHTML = '<p class="loading">Nie znaleziono książki.</p>'; }
+    else {
+      const snap = await getDoc(doc(db, "books", id));
+      if (!snap.exists()) { main.innerHTML = '<p class="loading">Książka nie istnieje.</p>'; }
+      else {
+        const b = snap.data();
+
+        const authorsSnap = await getDocs(query(collection(db, "authors"), orderBy("name")));
+        let authorOptions = "";
+        authorsSnap.forEach(a => {
+          const sel = a.id === b.authorId ? "selected" : "";
+          authorOptions += `<option value="${a.id}" ${sel}>${a.data().name}</option>`;
+        });
+
+        main.innerHTML = `
+          <div class="card">
+            ${b.genre ? `<span class="badge">${b.genre}</span>` : ""}
+            <h2>${b.title}</h2>
+            <a class="author-link" href="author.html?id=${b.authorId || ''}">✍️ ${b.author || '—'}</a>
+            <p class="description">${b.description || "<em>Brak opisu.</em>"}</p>
+            <div class="actions">
+              <a href="index.html" class="btn btn-back">← Lista</a>
+              <button class="btn btn-edit" onclick="toggleEdit()">✏️ Edytuj</button>
+              <button class="btn btn-delete" onclick="deleteBook()">🗑 Usuń</button>
+            </div>
+            <div class="edit-form" id="edit-form">
+              <label>Tytuł</label>
+              <input id="e-title" value="${b.title}" />
+              <label>Autor</label>
+              <select id="e-authorId"><option value="">— wybierz —</option>${authorOptions}</select>
+              <label>Gatunek</label>
+              <input id="e-genre" value="${b.genre || ''}" />
+              <label>Opis</label>
+              <textarea id="e-description">${b.description || ''}</textarea>
+              <button class="btn-save" onclick="saveBook()">💾 Zapisz zmiany</button>
+            </div>
+          </div>
+        `;
+
+        window.toggleEdit = () => document.getElementById("edit-form").classList.toggle("open");
+
+        window.saveBook = async () => {
+          const authorId = document.getElementById("e-authorId").value;
+          const authorName = authorId
+            ? document.querySelector(`#e-authorId option[value="${authorId}"]`).textContent
+            : b.author;
+          await updateDoc(doc(db, "books", id), {
+            title: document.getElementById("e-title").value.trim(),
+            authorId,
+            author: authorName,
+            genre: document.getElementById("e-genre").value.trim(),
+            description: document.getElementById("e-description").value.trim(),
+          });
+          location.reload();
+        };
+
+        window.deleteBook = async () => {
+          if (confirm("Na pewno usunąć tę książkę?")) {
+            await deleteDoc(doc(db, "books", id));
+            location.href = "index.html";
+          }
+        };
+      }
+    }
+  </script>
+</body>
+</html>
